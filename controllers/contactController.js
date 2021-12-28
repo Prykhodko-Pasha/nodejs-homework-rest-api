@@ -1,34 +1,13 @@
 const {
-  listContacts,
-  getContactById,
-  addContact,
-  removeContact,
-  updateContact,
-} = require("../model/index");
-
-const Joi = require("joi");
-
-const schemaAdd = Joi.object({
-  name: Joi.string().required(),
-  email: Joi.string()
-    .email({
-      minDomainSegments: 2,
-    })
-    .required(),
-  phone: Joi.string().required(),
-});
-const schemaUpdate = Joi.object({
-  name: Joi.string(),
-  email: Joi.string().email({
-    minDomainSegments: 2,
-    tlds: { allow: ["com", "net"] },
-  }),
-  phone: Joi.string(),
-}).min(1);
+  Contact,
+  schemaAdd,
+  schemaUpdate,
+  schemaUpdateStatus,
+} = require("../model/contact");
 
 const getAllContacts = async (_, res, next) => {
   try {
-    const contacts = await listContacts();
+    const contacts = await Contact.find();
     res.json(contacts);
   } catch (err) {
     next(err);
@@ -38,7 +17,7 @@ const getAllContacts = async (_, res, next) => {
 const getContact = async (req, res, next) => {
   const { contactId } = req.params;
   try {
-    const contact = await getContactById(contactId);
+    const contact = await Contact.findById(contactId);
     if (!contact) {
       const err = new Error("Not found");
       err.status = 404;
@@ -46,6 +25,9 @@ const getContact = async (req, res, next) => {
     }
     res.json(contact);
   } catch (err) {
+    if (err.message.includes("Cast to ObjectId failed")) {
+      err.status = 404;
+    }
     next(err);
   }
 };
@@ -60,9 +42,12 @@ const postContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await addContact(req.body);
+    const contact = await Contact.create(req.body);
     res.status(201).json(contact);
   } catch (err) {
+    if (err.message.includes("validation failed")) {
+      err.status = 400;
+    }
     next(err);
   }
 };
@@ -70,7 +55,7 @@ const postContact = async (req, res, next) => {
 const deleteContact = async (req, res, next) => {
   const { contactId } = req.params;
   try {
-    const contact = await removeContact(contactId);
+    const contact = await Contact.findByIdAndDelete(contactId);
     if (!contact) {
       const err = new Error("Not found");
       err.status = 404;
@@ -78,11 +63,14 @@ const deleteContact = async (req, res, next) => {
     }
     res.json({ message: "contact deleted" });
   } catch (err) {
+    if (err.message.includes("Cast to ObjectId failed")) {
+      err.status = 404;
+    }
     next(err);
   }
 };
 
-const patchContact = async (req, res, next) => {
+const updateContact = async (req, res, next) => {
   const { contactId } = req.params;
   try {
     const { error } = schemaUpdate.validate(req.body);
@@ -93,7 +81,9 @@ const patchContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await updateContact(contactId, req.body);
+    const contact = await Contact.findByIdAndUpdate(contactId, req.body, {
+      new: true,
+    });
     if (!contact) {
       const err = new Error("Not found");
       err.status = 404;
@@ -101,6 +91,48 @@ const patchContact = async (req, res, next) => {
     }
     res.json(contact);
   } catch (err) {
+    if (err.message.includes("Cast to ObjectId failed")) {
+      err.status = 404;
+    }
+    if (err.message.includes("validation failed")) {
+      err.status = 400;
+    }
+    next(err);
+  }
+};
+
+const updateStatusContact = async (req, res, next) => {
+  const { contactId } = req.params;
+  const { favorite } = req.body;
+  try {
+    const { error } = schemaUpdateStatus.validate(req.body);
+    if (error) {
+      const err = new Error(
+        "missing required name field or input data is invalid"
+      );
+      err.status = 400;
+      throw err;
+    }
+    const contact = await Contact.findByIdAndUpdate(
+      contactId,
+      { favorite },
+      {
+        new: true,
+      }
+    );
+    if (!contact) {
+      const err = new Error("Not found");
+      err.status = 404;
+      throw err;
+    }
+    res.json(contact);
+  } catch (err) {
+    if (err.message.includes("Cast to ObjectId failed")) {
+      err.status = 404;
+    }
+    if (err.message.includes("validation failed")) {
+      err.status = 400;
+    }
     next(err);
   }
 };
@@ -110,5 +142,6 @@ module.exports = {
   getContact,
   postContact,
   deleteContact,
-  patchContact,
+  updateContact,
+  updateStatusContact,
 };
