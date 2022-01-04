@@ -5,9 +5,19 @@ const {
   schemaUpdateStatus,
 } = require("../model/contact");
 
-const getAllContacts = async (_, res, next) => {
+const getAllContacts = async (req, res, next) => {
   try {
-    const contacts = await Contact.find();
+    const { _id } = req.user;
+    const { page = 1, limit = 20, favorite } = req.query;
+    let contacts = [];
+    if (favorite) {
+      contacts = await Contact.find({ owner: _id, favorite });
+    } else {
+      contacts = await Contact.find({ owner: _id }, "", {
+        skip: (page - 1) * limit,
+        limit: Number(limit),
+      });
+    }
     res.json(contacts);
   } catch (err) {
     next(err);
@@ -16,9 +26,10 @@ const getAllContacts = async (_, res, next) => {
 
 const getContact = async (req, res, next) => {
   const { contactId } = req.params;
+  const { _id } = req.user;
   try {
     const contact = await Contact.findById(contactId);
-    if (!contact) {
+    if (!contact || !contact.owner.equals(_id)) {
       const err = new Error("Not found");
       err.status = 404;
       throw err;
@@ -42,7 +53,9 @@ const postContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await Contact.create(req.body);
+
+    const { _id } = req.user;
+    const contact = await Contact.create({ ...req.body, owner: _id });
     res.status(201).json(contact);
   } catch (err) {
     if (err.message.includes("validation failed")) {
@@ -54,13 +67,14 @@ const postContact = async (req, res, next) => {
 
 const deleteContact = async (req, res, next) => {
   const { contactId } = req.params;
+  const { _id } = req.user;
   try {
-    const contact = await Contact.findByIdAndDelete(contactId);
-    if (!contact) {
-      const err = new Error("Not found");
-      err.status = 404;
-      throw err;
-    }
+    const contact = await Contact.findById(contactId);
+    if (!contact || !contact.owner.equals(_id))
+      return res.status(404).json({
+        message: "Not found",
+      });
+    await Contact.findByIdAndDelete(contactId);
     res.json({ message: "contact deleted" });
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
@@ -72,6 +86,7 @@ const deleteContact = async (req, res, next) => {
 
 const updateContact = async (req, res, next) => {
   const { contactId } = req.params;
+  const { _id } = req.user;
   try {
     const { error } = schemaUpdate.validate(req.body);
     if (error) {
@@ -81,15 +96,19 @@ const updateContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await Contact.findByIdAndUpdate(contactId, req.body, {
-      new: true,
-    });
-    if (!contact) {
-      const err = new Error("Not found");
-      err.status = 404;
-      throw err;
-    }
-    res.json(contact);
+    const contact = await Contact.findById(contactId);
+    if (!contact || !contact.owner.equals(_id))
+      return res.status(404).json({
+        message: "Not found",
+      });
+    const updatedContact = await Contact.findByIdAndUpdate(
+      contactId,
+      req.body,
+      {
+        new: true,
+      }
+    );
+    res.json(updatedContact);
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
       err.status = 404;
@@ -104,6 +123,7 @@ const updateContact = async (req, res, next) => {
 const updateStatusContact = async (req, res, next) => {
   const { contactId } = req.params;
   const { favorite } = req.body;
+  const { _id } = req.user;
   try {
     const { error } = schemaUpdateStatus.validate(req.body);
     if (error) {
@@ -113,19 +133,19 @@ const updateStatusContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await Contact.findByIdAndUpdate(
+    const contact = await Contact.findById(contactId);
+    if (!contact || !contact.owner.equals(_id))
+      return res.status(404).json({
+        message: "Not found",
+      });
+    const updatedContact = await Contact.findByIdAndUpdate(
       contactId,
       { favorite },
       {
         new: true,
       }
     );
-    if (!contact) {
-      const err = new Error("Not found");
-      err.status = 404;
-      throw err;
-    }
-    res.json(contact);
+    res.json(updatedContact);
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
       err.status = 404;
