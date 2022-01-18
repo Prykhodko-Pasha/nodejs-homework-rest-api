@@ -28,8 +28,8 @@ const getContact = async (req, res, next) => {
   const { contactId } = req.params;
   const { _id } = req.user;
   try {
-    const contact = await Contact.findById(contactId);
-    if (!contact || !contact.owner.equals(_id)) {
+    const contact = await Contact.findOne({ contactId, owner: _id });
+    if (!contact) {
       const err = new Error("Not found");
       err.status = 404;
       throw err;
@@ -69,12 +69,12 @@ const deleteContact = async (req, res, next) => {
   const { contactId } = req.params;
   const { _id } = req.user;
   try {
-    const contact = await Contact.findById(contactId);
-    if (!contact || !contact.owner.equals(_id))
+    const contact = await Contact.findOneAndDelete({ contactId, owner: _id });
+    if (!contact)
       return res.status(404).json({
         message: "Not found",
       });
-    await Contact.findByIdAndDelete(contactId);
+    // await Contact.findByIdAndDelete(contactId);
     res.json({ message: "contact deleted" });
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
@@ -96,19 +96,23 @@ const updateContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await Contact.findById(contactId);
-    if (!contact || !contact.owner.equals(_id))
+    const contact = await Contact.findOneAndUpdate(
+      { contactId, owner: _id },
+      req.body,
+      { new: true }
+    );
+    if (!contact)
       return res.status(404).json({
         message: "Not found",
       });
-    const updatedContact = await Contact.findByIdAndUpdate(
-      contactId,
-      req.body,
-      {
-        new: true,
-      }
-    );
-    res.json(updatedContact);
+    // const updatedContact = await Contact.findByIdAndUpdate(
+    //   contactId,
+    //   req.body,
+    //   {
+    //     new: true,
+    //   }
+    // );
+    res.json(contact);
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
       err.status = 404;
@@ -133,19 +137,23 @@ const updateStatusContact = async (req, res, next) => {
       err.status = 400;
       throw err;
     }
-    const contact = await Contact.findById(contactId);
-    if (!contact || !contact.owner.equals(_id))
+    const contact = await Contact.findOneAndUpdate(
+      { contactId, owner: _id },
+      { favorite },
+      { new: true }
+    );
+    if (!contact)
       return res.status(404).json({
         message: "Not found",
       });
-    const updatedContact = await Contact.findByIdAndUpdate(
-      contactId,
-      { favorite },
-      {
-        new: true,
-      }
-    );
-    res.json(updatedContact);
+    // const updatedContact = await Contact.findByIdAndUpdate(
+    //   contactId,
+    //   { favorite },
+    //   {
+    //     new: true,
+    //   }
+    // );
+    res.json(contact);
   } catch (err) {
     if (err.message.includes("Cast to ObjectId failed")) {
       err.status = 404;
