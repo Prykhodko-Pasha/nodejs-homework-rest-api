@@ -1,6 +1,7 @@
 const { Schema, model } = require("mongoose");
 const Joi = require("joi");
 const bcrypt = require("bcryptjs");
+const gravatar = require("gravatar");
 
 // eslint-disable-next-line no-useless-escape
 const emailRegexp = /^\w+([\.-]?\w+)+@\w+([\.:]?\w+)+(\.[a-zA-Z0-9]{2,3})+$/;
@@ -20,6 +21,10 @@ const userSchema = Schema({
     enum: ["starter", "pro", "business"],
     default: "starter",
   },
+  avatarURL: {
+    type: String,
+    default: null,
+  },
   token: {
     type: String,
     default: null,
@@ -34,6 +39,14 @@ userSchema.methods.comparePassword = function (password) {
   return bcrypt.compareSync(password, this.password);
 };
 
+userSchema.methods.generateAvatar = function (email) {
+  this.avatarURL = gravatar.url(email, {
+    protocol: "https",
+    s: "250",
+    d: "wavatar",
+  });
+};
+
 const joiSchemaUser = Joi.object({
   password: Joi.string().min(6).required(),
   email: Joi.string().pattern(emailRegexp).required(),
@@ -41,7 +54,15 @@ const joiSchemaUser = Joi.object({
 const joiSchemaUserSubs = Joi.object({
   subscription: Joi.string().valid("starter", "pro", "business").required(),
 });
+const joiSchemaUserAvatar = Joi.object({
+  avatarURL: Joi.string().required(),
+});
 
 const User = model("user", userSchema);
 
-module.exports = { User, joiSchemaUser, joiSchemaUserSubs };
+module.exports = {
+  User,
+  joiSchemaUser,
+  joiSchemaUserSubs,
+  joiSchemaUserAvatar,
+};
