@@ -2,12 +2,7 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs/promises");
 const jimp = require("jimp");
 const path = require("path");
-const {
-  User,
-  joiSchemaUser,
-  joiSchemaUserSubs,
-  // joiSchemaUserAvatar,
-} = require("../model/user");
+const { User, joiSchemaUser, joiSchemaUserSubs } = require("../model/user");
 
 const { SECRET_KEY } = process.env;
 const avatarsDir = path.join(__dirname, "../", "public/avatars");
@@ -113,23 +108,16 @@ const updateUserSubscription = async (req, res, next) => {
 const updateUserAvatar = async (req, res, next) => {
   try {
     const { _id } = req.user;
-    // const { avatarURL } = req.body;
     const { path: tempUpload, filename } = req.file;
-    // const { error } = joiSchemaUserAvatar.validate(req.body);
-    // if (error)
-    //   return res.status(400).json({
-    //     message: error.details[0].message,
-    //   });
-    await jimp.read(tempUpload, (err, resizeAvatar) => {
-      if (err) throw err;
-      resizeAvatar
-        .resize(250, 250) // resize
-        .quality(60) // set JPEG quality
-        .write(tempUpload); // save
+
+    await jimp.read(tempUpload).then((resizeAvatar) => {
+      return resizeAvatar.resize(250, 250).write(tempUpload);
     });
+
     const extension = filename.split(".").pop();
     const newFilename = `avatar-${Date.now()}.${extension}`;
     const fileUpload = path.join(avatarsDir, newFilename);
+
     await fs.rename(tempUpload, fileUpload);
     const avatarURL = path.join("avatars", newFilename);
     await User.findByIdAndUpdate(_id, { avatarURL });
