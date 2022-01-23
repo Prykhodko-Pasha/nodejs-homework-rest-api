@@ -2,6 +2,7 @@ const { Schema, model } = require("mongoose");
 const Joi = require("joi");
 const bcrypt = require("bcryptjs");
 const gravatar = require("gravatar");
+// const nanoid = require("nanoid");
 
 // eslint-disable-next-line no-useless-escape
 const emailRegexp = /^\w+([\.-]?\w+)+@\w+([\.:]?\w+)+(\.[a-zA-Z0-9]{2,3})+$/;
@@ -29,6 +30,14 @@ const userSchema = Schema({
     type: String,
     default: null,
   },
+  verify: {
+    type: Boolean,
+    default: false,
+  },
+  verificationToken: {
+    type: String,
+    required: [true, "Verify token is required"],
+  },
 });
 
 userSchema.methods.setPassword = function (password) {
@@ -46,6 +55,10 @@ userSchema.methods.generateAvatar = function (email) {
     d: "wavatar",
   });
 };
+
+// userSchema.methods.generateVerifToken = function () {
+//   this.verificationToken = nanoid();
+// };
 
 const joiSchemaUser = Joi.object({
   password: Joi.string().min(6).required(),

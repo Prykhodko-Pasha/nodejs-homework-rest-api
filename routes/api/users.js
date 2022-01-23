@@ -21,4 +21,10 @@ router.patch(
   userController.updateUserAvatar
 );
 
+router.get(
+  "/verify/:verificationToken",
+  authenticate,
+  userController.verifyUserEmail
+);
+
 module.exports = router;

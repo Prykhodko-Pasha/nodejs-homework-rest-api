@@ -2,6 +2,8 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs/promises");
 const jimp = require("jimp");
 const path = require("path");
+const nanoid = require("nanoid");
+const sendEmail = require("../helpers/sendEmail");
 const { User, joiSchemaUser, joiSchemaUserSubs } = require("../model/user");
 
 const { SECRET_KEY } = process.env;
@@ -25,7 +27,16 @@ const registerUser = async (req, res, next) => {
     const newUser = new User(req.body);
     newUser.setPassword(password);
     newUser.generateAvatar(email);
+    newUser.verificationToken = nanoid();
+    // newUser.generateVerifToken();
     const result = await newUser.save();
+
+    const data = {
+      to: email,
+      subject: "Verifying new email GoIT-HW",
+      html: "<a href=""><p>Please confirm your email</p>",
+    };
+    sendEmail();
     res.status(201).json({
       email,
       subscription: result.subscription,
@@ -127,6 +138,29 @@ const updateUserAvatar = async (req, res, next) => {
   }
 };
 
+const verifyUserEmail = async (req, res, next) => {
+  try {
+    const { verificationToken } = req.params;
+    const user = await User.findOne({ verificationToken });
+    if (!user)
+      return res.status(404).json({
+        message: "User not found",
+      });
+
+    const { _id } = user;
+    await User.findByIdAndUpdate(_id, {
+      verify: true,
+      verificationToken: null,
+    });
+
+    res.json({
+      message: "Verification successful",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -134,4 +168,5 @@ module.exports = {
   getCurrentUser,
   updateUserSubscription,
   updateUserAvatar,
+  verifyUserEmail,
 };
