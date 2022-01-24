@@ -2,11 +2,16 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs/promises");
 const jimp = require("jimp");
 const path = require("path");
-const nanoid = require("nanoid");
 const sendEmail = require("../helpers/sendEmail");
-const { User, joiSchemaUser, joiSchemaUserSubs } = require("../model/user");
+const {
+  User,
+  joiSchemaUser,
+  joiSchemaUserSubs,
+  joiSchemaUserVerif,
+} = require("../model/user");
 
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, PORT = 3000 } = process.env;
+const BASE_URL = `http://localhost:${PORT}/api`;
 const avatarsDir = path.join(__dirname, "../", "public/avatars");
 
 const registerUser = async (req, res, next) => {
@@ -27,19 +32,23 @@ const registerUser = async (req, res, next) => {
     const newUser = new User(req.body);
     newUser.setPassword(password);
     newUser.generateAvatar(email);
-    newUser.verificationToken = nanoid();
-    // newUser.generateVerifToken();
+    newUser.generateVerifToken();
     const result = await newUser.save();
 
+    const { verificationToken, subscription } = result;
     const data = {
       to: email,
       subject: "Verifying new email GoIT-HW",
-      html: "<a href=""><p>Please confirm your email</p>",
+      html: `<h1>Email Confirmation</h1>
+             <p>Thank you for subscribing!</p>
+             <p>Please confirm your email by clicking on the following link: </p>
+             <a href="${BASE_URL}/users/verify/${verificationToken}">Click here</a>`,
     };
-    sendEmail();
+    sendEmail(data);
+
     res.status(201).json({
       email,
-      subscription: result.subscription,
+      subscription: subscription,
     });
   } catch (err) {
     next(err);
@@ -59,6 +68,10 @@ const loginUser = async (req, res, next) => {
     if (!user || !user.comparePassword(password))
       return res.status(401).json({
         message: "Email or password is wrong",
+      });
+    if (!user.verify)
+      return res.status(403).json({
+        message: "Email is not verified",
       });
 
     const { _id, subscription } = user;
@@ -144,7 +157,7 @@ const verifyUserEmail = async (req, res, next) => {
     const user = await User.findOne({ verificationToken });
     if (!user)
       return res.status(404).json({
-        message: "User not found",
+        message: "User token not found",
       });
 
     const { _id } = user;
@@ -161,6 +174,45 @@ const verifyUserEmail = async (req, res, next) => {
   }
 };
 
+const sendVerifLetter = async (req, res, next) => {
+  try {
+    const { error } = joiSchemaUserVerif.validate(req.body);
+    if (error)
+      return res.status(400).json({
+        message: error.details[0].message,
+      });
+
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(404).json({
+        message: "User not found",
+      });
+
+    const { verificationToken, verify } = user;
+    if (verify)
+      return res.status(400).json({
+        message: "Verification has already been passed",
+      });
+
+    const data = {
+      to: email,
+      subject: "Verifying new email GoIT-HW",
+      html: `<h1>Email Confirmation</h1>
+             <p>Thank you for subscribing!</p>
+             <p>Please confirm your email by clicking on the following link: </p>
+             <a href="${BASE_URL}/users/verify/${verificationToken}">Click here</a>`,
+    };
+    sendEmail(data);
+
+    res.json({
+      message: "Verification email sent",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -169,4 +221,5 @@ module.exports = {
   updateUserSubscription,
   updateUserAvatar,
   verifyUserEmail,
+  sendVerifLetter,
 };

@@ -2,7 +2,7 @@ const { Schema, model } = require("mongoose");
 const Joi = require("joi");
 const bcrypt = require("bcryptjs");
 const gravatar = require("gravatar");
-// const nanoid = require("nanoid");
+const { nanoid } = require("nanoid");
 
 // eslint-disable-next-line no-useless-escape
 const emailRegexp = /^\w+([\.-]?\w+)+@\w+([\.:]?\w+)+(\.[a-zA-Z0-9]{2,3})+$/;
@@ -56,9 +56,9 @@ userSchema.methods.generateAvatar = function (email) {
   });
 };
 
-// userSchema.methods.generateVerifToken = function () {
-//   this.verificationToken = nanoid();
-// };
+userSchema.methods.generateVerifToken = function () {
+  this.verificationToken = nanoid();
+};
 
 const joiSchemaUser = Joi.object({
   password: Joi.string().min(6).required(),
@@ -67,8 +67,8 @@ const joiSchemaUser = Joi.object({
 const joiSchemaUserSubs = Joi.object({
   subscription: Joi.string().valid("starter", "pro", "business").required(),
 });
-const joiSchemaUserAvatar = Joi.object({
-  avatarURL: Joi.string().required(),
+const joiSchemaUserVerif = Joi.object({
+  email: Joi.string().pattern(emailRegexp).required(),
 });
 
 const User = model("user", userSchema);
@@ -77,5 +77,5 @@ module.exports = {
   User,
   joiSchemaUser,
   joiSchemaUserSubs,
-  joiSchemaUserAvatar,
+  joiSchemaUserVerif,
 };
